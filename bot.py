@@ -15,6 +15,7 @@ from nonebot.adapters.cqhttp import Bot as CQHTTPBot
 
 # You can pass some keyword args config to init function
 nonebot.init()
+nonebot.load_plugins("sukyaru/plugins")
 app = nonebot.get_asgi()
 
 driver = nonebot.get_driver()
