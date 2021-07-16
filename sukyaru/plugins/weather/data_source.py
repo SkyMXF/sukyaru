@@ -67,7 +67,7 @@ def get_city_list(key: str, location: str):
     
     return {"code": search_result["code"], "cities": city_list}
 
-msg_prefix_list = ["爷来哩！", "呵欠————好几把早。", "早安。", "大家好，", "嘤 ", "都给爷起来，"]
+msg_prefix_list = ["爷来哩！", "早起上班真几把烦，", "早安。", "米娜桑哦哈呦，", "嘤 ", "都给爷起床，"]
 def gen_weather_msg(one_city_weather, use_prefix=False):
     """
     day_weather.keys() = [
@@ -134,5 +134,9 @@ def gen_weather_msg(one_city_weather, use_prefix=False):
     weather_msg = "%s今天%s，%s-%s°C，%s，紫外线指数%s。%s"%(
         one_city_weather["city"], weather_type, one_city_weather["tempMin"], one_city_weather["tempMax"], wind_msg, one_city_weather["uvIndex"], warning_msg
     )
+    
+    if use_prefix:
+        prefix_msg = random.choice(msg_prefix_list)
+        weather_msg = prefix_msg + weather_msg
 
     return weather_msg

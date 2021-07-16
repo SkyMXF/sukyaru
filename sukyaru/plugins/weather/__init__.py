@@ -1,14 +1,43 @@
+import time
+
+import nonebot
 from nonebot import on_command, get_driver
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 from nonebot.adapters import Bot, Event
 from nonebot.log import logger
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from .config import Config
 from .data_source import get_day_weather, gen_weather_msg
 
 global_config = get_driver().config
 weather_config = Config(**global_config.dict())
+
+scheduler = AsyncIOScheduler()
+if not scheduler.running:
+    scheduler.configure(weather_config.apscheduler_config)
+    scheduler.start()
+    logger.opt(colors=True).info("<y>Scheduler Started</y>")
+
+# scheduler weather report
+@scheduler.scheduled_job('cron', hour='7', minute='00', second='0')
+async def weather_report():
+    bots = nonebot.get_bots()
+    cities_dict = weather_config.weather_report_cities
+    for bot_id, bot in bots.items():
+        for group_id in cities_dict.keys():
+            for city_name in cities_dict[group_id]:
+                city_weather = get_day_weather(
+                    key=weather_config.qweather_key,
+                    location=city_name,
+                    only_one=True
+                )
+                if city_weather["code"]:
+                    msg = gen_weather_msg(city_weather["result"], use_prefix=True)
+                    await bot.send_msg(group_id=int(group_id), message=msg)
+                time.sleep(1)
 
 weather = on_command("天气", priority=5)
 
@@ -34,29 +63,9 @@ async def day_weather(bot: Bot, event: Event, state: T_State):
         )
         #logger.log("INFO", str(type(response)) + " " + str(response))
         if city_weather["code"]:
-            print("sending...")
-            await weather.finish(gen_weather_msg(city_weather["result"], use_prefix=True))
+            msg = gen_weather_msg(city_weather["result"], use_prefix=False)
+            await weather.finish(msg)
         else:
             await weather.finish("暂时无法查询'%s'的天气"%(args))
     else:
         await weather.finish("天气功能未实装")
-
-"""
-@weather.handle()
-async def handle_first_receive(bot: Bot, event: Event, state: T_State):
-    args = str(event.get_message()).strip()  # 首次发送命令时跟随的参数，例：/天气 上海，则args为上海
-    if args:
-        state["city"] = args  # 如果用户发送了参数则直接赋值
-
-@weather.got("city", prompt="你想查询哪个城市的天气呢？")
-async def handle_city(bot: Bot, event: Event, state: T_State):
-    city = state["city"]
-    if city not in ["上海", "北京"]:
-        await weather.reject("你想查询的城市暂不支持，请重新输入！")
-    city_weather = await get_weather(city)
-    await weather.finish(city_weather)
-
-
-async def get_weather(city: str):
-    return f"{city}的天气是..."
-"""
