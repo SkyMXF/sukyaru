@@ -10,7 +10,7 @@ from nonebot.log import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .config import Config
-from .data_source import get_day_weather, gen_weather_msg
+from .data_source import check_warning, get_day_weather, gen_weather_msg, get_warn_suffix
 
 global_config = get_driver().config
 weather_config = Config(**global_config.dict())
@@ -22,7 +22,7 @@ if not scheduler.running:
     logger.opt(colors=True).info("<y>Scheduler Started</y>")
 
 # scheduler weather report
-@scheduler.scheduled_job('cron', hour='7', minute='00', second='0')
+@scheduler.scheduled_job('cron', hour='7', minute='0', second='0')
 async def weather_report():
     bots = nonebot.get_bots()
     cities_dict = weather_config.weather_report_cities
@@ -39,11 +39,37 @@ async def weather_report():
                     await bot.send_msg(group_id=int(group_id), message=msg)
                 time.sleep(1)
 
+# scheduler weather report
+current_warn_ids = dict()
+@scheduler.scheduled_job('interval', minutes=5)
+async def bad_weather_warning():
+    
+    logger.opt(colors=True).info("<y>Checking Bad Weather Warning</y>")
+
+    bots = nonebot.get_bots()
+    cities_dict = weather_config.bad_warning_cities
+    for bot_id, bot in bots.items():
+        for group_id in cities_dict.keys():
+            for city_name in cities_dict[group_id]:
+                if not (city_name in current_warn_ids.keys()):
+                    current_warn_ids[city_name] = set()
+                warning_list = check_warning(
+                    key=weather_config.qweather_key,
+                    location=city_name,
+                    current_warn_ids=current_warn_ids[city_name]
+                )
+                if warning_list["code"]:
+                    if len(warning_list["result"]) > 0:
+                        for warn_info in warning_list["result"]:
+                            await bot.send_msg(group_id=int(group_id), message="【%s】"%(city_name) + warn_info["text"] + get_warn_suffix())
+                            time.sleep(1)
+
 weather = on_command("天气", priority=5)
 
 @weather.handle()
 async def day_weather(bot: Bot, event: Event, state: T_State):
-    args = str(event.get_message()).strip()
+    args = str(event.get_message())
+    args = args.strip()
 
     # check serving group
     sess_id = event.get_session_id()

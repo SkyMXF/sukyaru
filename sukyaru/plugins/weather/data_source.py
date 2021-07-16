@@ -4,7 +4,7 @@ import random
 success_code = "200"
 timeout = httpx.Timeout(3, read=2)
 
-def get_day_weather(key: str, location: str, only_one=False):
+def get_day_weather(key: str, location: str, only_one=True):
 
     city_list = get_city_list(key, location)
     if city_list["code"] != success_code:
@@ -140,3 +140,60 @@ def gen_weather_msg(one_city_weather, use_prefix=False):
         weather_msg = prefix_msg + weather_msg
 
     return weather_msg
+
+def check_warning(key: str, location: str, current_warn_ids: set):
+
+    only_one = True
+
+    city_list = get_city_list(key, location)
+    if city_list["code"] != success_code:
+        return {"code": False}
+    city_list = city_list["cities"]
+    if len(city_list) == 0:
+        return {"code": False}
+    
+    city_warning_list = []
+    for city_info in city_list:
+        warning_params = {"key": key, "location": city_info["id"]}
+        
+        warning_result = httpx.get(
+            'https://devapi.qweather.com/v7/warning/now',
+            params=warning_params,
+            timeout=timeout
+        ).json()
+        
+        if warning_result["code"] != success_code:
+            return {"code": False}
+        
+        warning_list = []
+        warning_still = {w_id: False for w_id in current_warn_ids}
+        for warning_info in warning_result["warning"]:
+            if warning_info["id"] in warning_still.keys():
+                warning_still[warning_info["id"]] = True
+                continue
+            warning_list.append({
+                "city": city_info["name"],
+                "adm": city_info["adm1"],
+                #"pubTime": warning_info["pubTime"],
+                #"title": warning_info["title"],
+                #"level": warning_info["level"],
+                #"type": warning_info["type"],
+                #"typeName": warning_info["typeName"],
+                "text": warning_info["text"],
+            })
+            current_warn_ids.add(warning_info["id"])
+        
+        for w_id, is_still in warning_still.items():
+            if not is_still:
+                current_warn_ids.discard(w_id)
+
+        if only_one:
+            return {"code": True, "result": warning_list}
+    
+        city_warning_list.append(warning_list)
+
+    return {"code": True, "result": city_warning_list}
+
+warning_suffix_list = ["快逃"]
+def get_warn_suffix():
+    return random.choice(warning_suffix_list)
