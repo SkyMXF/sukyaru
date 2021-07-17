@@ -22,7 +22,7 @@ if not scheduler.running:
     logger.opt(colors=True).info("<y>Scheduler Started</y>")
 
 # scheduler weather report
-@scheduler.scheduled_job('cron', hour='7', minute='0', second='0')
+@scheduler.scheduled_job('cron', hour='7', minute='2', second='0')
 async def weather_report():
     bots = nonebot.get_bots()
     cities_dict = weather_config.weather_report_cities
@@ -37,14 +37,29 @@ async def weather_report():
                 if city_weather["code"]:
                     msg = gen_weather_msg(city_weather["result"], use_prefix=True)
                     await bot.send_msg(group_id=int(group_id), message=msg)
-                time.sleep(1)
+                time.sleep(3)
 
 # scheduler weather report
 current_warn_ids = dict()
-@scheduler.scheduled_job('interval', minutes=5)
-async def bad_weather_warning():
+def init_current_warn():
     
-    logger.opt(colors=True).info("<y>Checking Bad Weather Warning</y>")
+    logger.opt(colors=True).info("<y>Init Bad Weather Warning</y>")
+
+    cities_dict = weather_config.bad_warning_cities
+    for group_id in cities_dict.keys():
+        for city_name in cities_dict[group_id]:
+            if not (city_name in current_warn_ids.keys()):
+                current_warn_ids[city_name] = set()
+            warning_list = check_warning(
+                key=weather_config.qweather_key,
+                location=city_name,
+                current_warn_ids=current_warn_ids[city_name]
+            )
+
+init_current_warn()
+
+@scheduler.scheduled_job('interval', minutes=13)
+async def bad_weather_warning():
 
     bots = nonebot.get_bots()
     cities_dict = weather_config.bad_warning_cities
@@ -60,6 +75,7 @@ async def bad_weather_warning():
                 )
                 if warning_list["code"]:
                     if len(warning_list["result"]) > 0:
+                        logger.opt(colors=True).info("<y>Got Bad Weather Warning</y>")
                         for warn_info in warning_list["result"]:
                             await bot.send_msg(group_id=int(group_id), message="【%s】"%(city_name) + warn_info["text"] + get_warn_suffix())
                             time.sleep(1)
