@@ -3,6 +3,7 @@ import random
 
 success_code = "200"
 timeout = httpx.Timeout(3, read=2)
+proxies = {'http': None, 'https': None}
 
 def get_day_weather(key: str, location: str, only_one=True):
 
@@ -20,7 +21,8 @@ def get_day_weather(key: str, location: str, only_one=True):
         weather_result = httpx.get(
             'https://devapi.qweather.com/v7/weather/3d',
             params=weather_params,
-            timeout=timeout
+            timeout=timeout,
+            proxies=proxies
         ).json()
         
         if weather_result["code"] != success_code:
@@ -54,7 +56,8 @@ def get_city_list(key: str, location: str):
     search_result = httpx.get(
         'https://geoapi.qweather.com/v2/city/lookup',
         params=geo_params,
-        timeout=timeout
+        timeout=timeout,
+        proxies=proxies
     ).json()
     if search_result["code"] != success_code:
         return {"code": search_result["code"]}
@@ -159,7 +162,8 @@ def check_warning(key: str, location: str, current_warn_ids: set):
         warning_result = httpx.get(
             'https://devapi.qweather.com/v7/warning/now',
             params=warning_params,
-            timeout=timeout
+            timeout=timeout,
+            proxies=proxies
         ).json()
         
         if warning_result["code"] != success_code:
