@@ -1,4 +1,5 @@
 import re
+import os
 import time
 import asyncio
 import datetime
@@ -13,7 +14,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
 
 from .config import Config
-from .model import init_db, save_reminds, read_reminds, remove_remind
+from .model import init_db, save_reminds, read_reminds, remove_remind, get_key
 
 global_config = get_driver().config
 reminder_config = Config(**global_config.dict())
@@ -104,7 +105,7 @@ async def check_unsend():
                 text=remi["text"]
             )
 
-delta_time = datetime.timedelta(seconds=5)
+delta_time = datetime.timedelta(seconds=3)
 trigger = DateTrigger(run_date=datetime.datetime.now() + delta_time)
 scheduler.add_job(
     check_unsend,
@@ -123,4 +124,21 @@ def add_sched(rowid:int, user_qq:int, delta_time:float, text:str):
 
     time.sleep(1)
 
+get_remind_key = on_command("提醒功能", rule=to_me(), priority=5)
+@get_remind_key.handle()
+async def check_remind_key(bot: Bot, event: Event, state: T_State):
+    # dont send in group
+    sess_id = event.get_session_id()
+    if "group" in sess_id:
+        return
 
+    user_qq = int(event.get_user_id())
+    user_key = await get_key(user_qq)
+    
+    await get_remind_key.finish(
+        "像这样发送get请求就可以收到提醒啦：%s:%d/%s?key=%s&text=提醒内容"%(
+            reminder_config.server_host,
+            reminder_config.remind_server_port,
+            "remind", user_key
+        )
+    )
