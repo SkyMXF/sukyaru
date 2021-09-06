@@ -47,13 +47,15 @@ def init_current_warn():
 
     cities_dict = weather_config.bad_warning_cities
     for group_id in cities_dict.keys():
+        if not (group_id in current_warn_ids):
+            current_warn_ids[group_id] = dict()
         for city_name in cities_dict[group_id]:
-            if not (city_name in current_warn_ids.keys()):
-                current_warn_ids[city_name] = set()
+            if not (city_name in current_warn_ids[group_id].keys()):
+                current_warn_ids[group_id][city_name] = set()
             warning_list = check_warning(
                 key=weather_config.qweather_key,
                 location=city_name,
-                current_warn_ids=current_warn_ids[city_name]
+                current_warn_ids=current_warn_ids[group_id][city_name]
             )
 
 init_current_warn()
@@ -65,13 +67,15 @@ async def bad_weather_warning():
     cities_dict = weather_config.bad_warning_cities
     for bot_id, bot in bots.items():
         for group_id in cities_dict.keys():
+            if not (group_id in current_warn_ids):
+                current_warn_ids[group_id] = dict()
             for city_name in cities_dict[group_id]:
-                if not (city_name in current_warn_ids.keys()):
-                    current_warn_ids[city_name] = set()
+                if not (city_name in current_warn_ids[group_id].keys()):
+                    current_warn_ids[group_id][city_name] = set()
                 warning_list = check_warning(
                     key=weather_config.qweather_key,
                     location=city_name,
-                    current_warn_ids=current_warn_ids[city_name]
+                    current_warn_ids=current_warn_ids[group_id][city_name]
                 )
                 if warning_list["code"]:
                     if len(warning_list["result"]) > 0:
